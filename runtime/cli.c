@@ -7,7 +7,7 @@ static void usage(FILE *out) {
     fprintf(out,
         "Mini Linux Runtime & Execution Toolkit\n\n"
         "usage: mlrt <command> [arguments]\n\n"
-        "commands:\n"
+        "Linux execution commands:\n"
         "  shell                 interactive Unix-style shell\n"
         "  elf FILE [...]        inspect ELF headers/sections/symbols/segments\n"
         "  map FILE              visualize PT_LOAD virtual-memory layout\n"
@@ -15,9 +15,17 @@ static void usage(FILE *out) {
         "  trace ...             ptrace process debugger/tracer\n"
         "  alloc-demo            custom allocator demo and threaded stress test\n"
         "  server [...]          loopback-only TCP command server\n"
-        "  client [...]          TCP client for the local command server\n"
+        "  client [...]          TCP client for the local command server\n\n"
+        "Embedded simulation commands (no hardware required):\n"
+        "  rt-demo [...]         periodic tasks, bounded ring buffer, jitter/watchdog metrics\n"
+        "  event-demo [...]      epoll + timerfd + eventfd + signalfd event loop\n"
+        "  serial-demo           PTY-backed virtual UART + framed binary protocol demo\n"
+        "  target-sim [...]      run the virtual embedded target state machine\n"
+        "  target ...            query/configure/fault-inject the target simulator\n"
+        "  fw ...                pack/inspect/verify simulated firmware images\n"
+        "  benchmark [...]       timer, IPC, and bounded-buffer measurements\n"
         "  help                  show this help\n\n"
-        "Execution path: command -> shell -> processes -> FDs/pipes -> ELF -> mmap -> ptrace -> TCP\n");
+        "Execution path: command -> processes -> ELF/mmap/ptrace -> embedded runtime -> protocol -> virtual target\n");
 }
 
 int main(int argc, char **argv) {
@@ -37,6 +45,13 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "alloc-demo") == 0) return allocator_cli_main(argc - 1, argv + 1);
     if (strcmp(argv[1], "server") == 0) return network_server_cli_main(argc - 1, argv + 1);
     if (strcmp(argv[1], "client") == 0) return network_client_cli_main(argc - 1, argv + 1);
+    if (strcmp(argv[1], "rt-demo") == 0) return rt_demo_cli_main(argc - 1, argv + 1);
+    if (strcmp(argv[1], "event-demo") == 0) return event_demo_cli_main(argc - 1, argv + 1);
+    if (strcmp(argv[1], "serial-demo") == 0) return serial_demo_cli_main(argc - 1, argv + 1);
+    if (strcmp(argv[1], "target-sim") == 0) return target_server_cli_main(argc - 1, argv + 1);
+    if (strcmp(argv[1], "target") == 0) return target_client_cli_main(argc - 1, argv + 1);
+    if (strcmp(argv[1], "fw") == 0) return fw_cli_main(argc - 1, argv + 1);
+    if (strcmp(argv[1], "benchmark") == 0) return benchmark_cli_main(argc - 1, argv + 1);
 
     fprintf(stderr, "mlrt: unknown command '%s'\n\n", argv[1]);
     usage(stderr);
