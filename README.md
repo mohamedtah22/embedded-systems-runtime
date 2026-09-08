@@ -2,7 +2,7 @@
 
 A portfolio-oriented collection of low-level systems programming exercises written in **C** and **x86 assembly**, developed during systems-programming coursework at Ben-Gurion University.
 
-The repository follows the Linux execution path from a shell command, through processes and file descriptors, down to raw system calls, ELF executable structure, virtual memory, and program loading.
+The repository follows the Linux execution path from a shell command, through processes and file descriptors, down to raw system calls, ELF object structure, virtual memory, and program loading.
 
 ## Highlights
 
@@ -11,7 +11,8 @@ The repository follows the Linux execution path from a shell command, through pr
 - Process tracking, foreground/background execution, signals, and command history
 - Raw 32-bit Linux system calls from NASM through `int 0x80`
 - x86 registers, stack arguments, and low-level OS interfaces
-- ELF32 header and program-header parsing
+- ELF headers, section headers, symbols, and file/virtual-address relationships
+- ELF32 program-header parsing and `PT_LOAD` handling
 - Virtual-memory concepts, page alignment, `mmap`, and R/W/X permissions
 - Direct work with C, Linux, executable formats, and systems-level debugging concepts
 
@@ -38,6 +39,7 @@ low-level-linux-systems-suite/
 │   ├── Makefile
 │   └── README.md
 ├── docs/
+│   ├── elf-object-format.md
 │   ├── execution-model.md
 │   └── portfolio-notes.md
 └── README.md
@@ -63,14 +65,14 @@ An extended Unix-style shell exercise that works directly with Linux process-man
 
 - `fork` and `execvp`
 - `waitpid`
-- pipes
+- `pipe`, `dup`, and `dup2`
 - input/output redirection
 - foreground and background execution
 - process-state tracking
-- `SIGTSTP`, `SIGCONT`, and `SIGINT`
-- command history and replay
+- signal-based process control
+- command history and replay (`!!` and indexed history entries)
 
-The standalone `mypipeline.c` demonstrates the file-descriptor mechanics of connecting the output of one child process to the input of another.
+The standalone `mypipeline.c` demonstrates the file-descriptor mechanics of connecting the output of one child process to the input of another. `myshell.c` integrates process creation, command execution, pipelines, redirection, and shell state management.
 
 ## 3. x86 Assembly and Raw Linux System Calls
 
@@ -85,6 +87,22 @@ The program processes command-line arguments, opens input/output files, reads by
 - file descriptors
 - raw `open`, `read`, `write`, and `exit` system calls
 - Linux 32-bit syscall ABI
+
+## ELF Object Inspection and Symbol Analysis
+
+The repository also documents the ELF object-file concepts studied before the loader implementation.
+
+**Topics:**
+
+- ELF headers and section headers
+- symbol tables
+- `.text`, `.rodata`, and symbol placement
+- ELF entry-point metadata
+- `readelf` and `/usr/include/elf.h`
+- mapping virtual addresses to file offsets
+- `open`, `read`, `write`, `lseek`, and `close`
+
+See [`docs/elf-object-format.md`](docs/elf-object-format.md).
 
 ## 4. ELF32 Static Program Loader
 
@@ -111,9 +129,10 @@ flowchart LR
     B --> C[File descriptors]
     C --> D[Pipes and signals]
     D --> E[Raw syscalls]
-    E --> F[ELF format]
-    F --> G[Virtual memory]
-    G --> H[Program entry point]
+    E --> F[ELF sections and symbols]
+    F --> G[ELF program headers]
+    G --> H[Virtual memory mapping]
+    H --> I[Program entry point]
 ```
 
 Together, these modules provide hands-on exposure to the layers that application software normally hides: processes, system calls, executable formats, memory mappings, and machine-level interfaces.
@@ -131,14 +150,14 @@ Some original course support files referenced by the Makefiles, such as `LinePar
 
 ## Skills Demonstrated
 
-`C` · `Linux` · `x86 Assembly` · `System Calls` · `Processes` · `Signals` · `Pipes` · `IPC` · `File Descriptors` · `Virtual Memory` · `mmap` · `ELF` · `NASM` · `GCC` · `Make`
+`C` · `Linux` · `x86 Assembly` · `System Calls` · `Processes` · `Signals` · `Pipes` · `IPC` · `File Descriptors` · `ELF` · `Symbol Tables` · `Virtual Memory` · `mmap` · `NASM` · `GCC` · `Make`
 
 ## Resume-Friendly Summary
 
 **Low-Level Linux Systems Programming Suite — C, x86 Assembly, ELF, Linux**
 
 - Built low-level Linux components covering process creation, pipelines, I/O redirection, process control, signals, and command history using `fork`, `execvp`, `waitpid`, `pipe`, and file-descriptor manipulation.
-- Implemented x86 NASM code using raw Linux system calls and an ELF32 loader exercise working with program headers, virtual-memory mappings, segment permissions, and executable entry points.
+- Worked with raw x86 Linux system calls and ELF internals, including executable structure, program headers, file/virtual-address relationships, virtual-memory mappings, segment permissions, and executable entry points.
 
 ## Author
 
