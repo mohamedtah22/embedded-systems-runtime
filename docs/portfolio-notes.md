@@ -1,22 +1,22 @@
-# Portfolio Notes
+# Portfolio Positioning
 
-## Suggested resume entry
+Recommended resume title:
 
-**Low-Level Linux Systems Programming Suite — C, x86 Assembly, ELF, Linux**
+**Mini Linux Runtime & Execution Toolkit — C, Linux, x86, ELF, Networking**
 
-- Built a collection of low-level Linux components including a Unix-style shell with process creation, pipelines, I/O redirection, job/process control, signals, and command history using `fork`, `execvp`, `waitpid`, `pipe`, and file-descriptor manipulation.
-- Implemented x86 NASM code using raw Linux `int 0x80` system calls and developed an ELF32 static loader that parses program headers, works with page-aligned virtual-memory mappings and R/W/X segment permissions, and transfers execution to an executable entry point.
+Recommended bullets:
 
-## Interview topics supported by this repository
+- Built an integrated Linux systems toolkit with an N-stage Unix shell, process groups/job control, pipes/redirection, ELF32/ELF64 inspection, and a custom static `PT_LOAD` loader with page-aligned `mmap` and BSS zero-fill handling.
+- Added `ptrace` register/single-step tracing, an mmap-backed allocator with split/coalesce logic and synchronization, raw x86 `int 0x80` syscall wrappers, and a concurrent loopback TCP command service reusing the shell execution engine.
 
-- What happens during `fork` and `exec`?
-- How does a Unix pipeline work at the file-descriptor level?
-- What is the difference between a process and a program?
-- How are standard input/output redirected?
-- How do signals affect process state?
-- How does a raw Linux syscall differ from a libc wrapper?
-- What information is stored in an ELF program header?
-- Why must memory mappings be page aligned?
-- What is the relationship between `p_filesz` and `p_memsz`?
-- How do ELF permission flags map to virtual-memory permissions?
-- What does an executable entry point represent?
+What this project demonstrates accurately:
+
+- C and Linux systems programming
+- processes, signals, process groups, file descriptors, pipes, IPC
+- ELF/linker/loader concepts and virtual memory
+- x86/x86-64 execution details
+- ptrace-based debugging concepts
+- sockets, threads, mutexes, condition variables
+- custom memory management
+
+Do not describe this repository as kernel development, device-driver work, RTOS work, or MCU firmware. Those are separate domains and are not implemented here.
