@@ -1,166 +1,154 @@
-# Low-Level Linux Systems Programming Suite
+# Mini Linux Runtime & Execution Toolkit
 
-A portfolio-oriented collection of low-level systems programming exercises written in **C** and **x86 assembly**, developed during systems-programming coursework at Ben-Gurion University.
+A Linux systems toolkit in **C and x86 assembly**, exploring how commands become processes and how executable bytes become a virtual-memory image.
 
-The repository follows the Linux execution path from a shell command, through processes and file descriptors, down to raw system calls, ELF object structure, virtual memory, and program loading.
+**Milestone 1 is implemented:** a shared, validated ELF parser, command-line inspector, and virtual-memory layout viewer. The original shell, assembly and loader sources are preserved while their integration proceeds in small, tested milestones.
 
-## Highlights
+## Architecture
 
-- Unix process creation and execution with `fork`, `execvp`, and `waitpid`
-- Pipelines and I/O redirection with file descriptors, `pipe`, `dup`, and `dup2`
-- Process tracking, foreground/background execution, signals, and command history
-- Raw 32-bit Linux system calls from NASM through `int 0x80`
-- x86 registers, stack arguments, and low-level OS interfaces
-- ELF headers, section headers, symbols, and file/virtual-address relationships
-- ELF32 program-header parsing and `PT_LOAD` handling
-- Virtual-memory concepts, page alignment, `mmap`, and R/W/X permissions
-- Direct work with C, Linux, executable formats, and systems-level debugging concepts
+![Runtime architecture and implementation status](docs/architecture.svg)
 
-## Repository Structure
+The target execution path is:
+
+**Command input → shell → processes → file descriptors/pipes → ELF inspection → loading → virtual memory → tracing → networking**
+
+Inspection, loading and tracing are complementary entry points into that path, not compulsory steps executed by every shell command. Today, `mini-runtime elf` and `mini-runtime memory` share one parser and metadata model. The next loader will consume that same model.
+
+## Working features
+
+- ELF32/i386 and ELF64/x86-64 inspection, without requiring a 32-bit host or multilib.
+- Header fields, architecture, entry point, program headers and section headers.
+- Section names including `.text`, `.data`, `.bss` and `.rodata` when present.
+- Static and dynamic symbol tables, symbol type, binding, visibility and section index.
+- `PT_LOAD` ranges, file offsets, sizes, alignment, permissions and zero-fill sizes.
+- Virtual-address translation that distinguishes file-backed bytes, BSS, unmapped addresses and overlapping segments.
+- Bounds and overflow checks before metadata is consumed; explicit malformed-file diagnostics.
+- Terminal-safe display of names embedded in ELF files.
+- One top-level Makefile, reusable C parser API and automated regression tests.
+
+## Build and try it
+
+Requirements: Linux, a C11 compiler, GNU Make. Tests additionally need Python 3 and GNU `readelf` (binutils). The current milestone has no NASM or multilib dependency.
+
+```sh
+make
+make elf-inspector
+./build/mini-runtime --help
+./build/mini-runtime elf --header ./build/mini-runtime
+./build/mini-runtime elf --sections --symbols ./build/mini-runtime
+./build/mini-runtime elf --segments /bin/ls
+./build/mini-runtime memory /bin/ls
+./build/elf-inspector --all /bin/ls
+make test
+make sanitize
+make clean
+```
+
+To translate an address, take an entry point or `PT_LOAD` address from the inspector, then use:
+
+```sh
+./build/mini-runtime elf --vaddr 0x8048100 path/to/elf32
+```
+
+The address above belongs to the deterministic test fixture; real executable addresses differ. For PIE/shared objects, use ELF virtual addresses before the runtime load bias, not an ASLR-adjusted process address.
+
+Example output from the ELF32 test fixture:
 
 ```text
-low-level-linux-systems-suite/
-├── 01-shell-basics/
-│   ├── myshell.c
-│   ├── Makefile
-│   └── README.md
-├── 02-shell-pipelines-job-control/
-│   ├── myshell.c
-│   ├── mypipeline.c
-│   ├── Makefile
-│   └── README.md
-├── 03-x86-assembly-syscalls/
-│   ├── encoder.asm
-│   ├── input.txt
-│   ├── Makefile
-│   └── README.md
-├── 04-elf-static-loader/
-│   ├── loader.c
-│   ├── Makefile
-│   └── README.md
-├── docs/
-│   ├── elf-object-format.md
-│   ├── execution-model.md
-│   └── portfolio-notes.md
-└── README.md
+ELF header
+  Magic: 7f 45 4c 46
+  Class: ELF32
+  Encoding: little-endian
+  Architecture: Intel 80386 (3)
+  Type: 2
+  Version: 1
+  OS ABI: 0  ABI version: 0
+  Entry: 0x8048100
 ```
 
-## 1. Shell Basics
+Address translation examples from that fixture:
 
-A minimal command interpreter in C that focuses on command execution and standard input/output redirection.
-
-**Topics:**
-
-- `execvp`
-- file descriptors
-- `open`, `close`, `dup2`
-- stdin/stdout redirection
-- working-directory handling
-
-## 2. Shell, Pipelines, and Job Control
-
-An extended Unix-style shell exercise that works directly with Linux process-management primitives.
-
-**Topics:**
-
-- `fork` and `execvp`
-- `waitpid`
-- `pipe`, `dup`, and `dup2`
-- input/output redirection
-- foreground and background execution
-- process-state tracking
-- signal-based process control
-- command history and replay (`!!` and indexed history entries)
-
-The standalone `mypipeline.c` demonstrates the file-descriptor mechanics of connecting the output of one child process to the input of another. `myshell.c` integrates process creation, command execution, pipelines, redirection, and shell state management.
-
-## 3. x86 Assembly and Raw Linux System Calls
-
-A 32-bit x86 NASM exercise that interacts with Linux through the raw `int 0x80` system-call interface.
-
-The program processes command-line arguments, opens input/output files, reads bytes, applies a simple transformation, and writes results using register-based syscall arguments.
-
-**Topics:**
-
-- NASM and x86 registers
-- stack-based function arguments
-- file descriptors
-- raw `open`, `read`, `write`, and `exit` system calls
-- Linux 32-bit syscall ABI
-
-## ELF Object Inspection and Symbol Analysis
-
-The repository also documents the ELF object-file concepts studied before the loader implementation.
-
-**Topics:**
-
-- ELF headers and section headers
-- symbol tables
-- `.text`, `.rodata`, and symbol placement
-- ELF entry-point metadata
-- `readelf` and `/usr/include/elf.h`
-- mapping virtual addresses to file offsets
-- `open`, `read`, `write`, `lseek`, and `close`
-
-See [`docs/elf-object-format.md`](docs/elf-object-format.md).
-
-## 4. ELF32 Static Program Loader
-
-An educational user-space loader in C that explores how ELF executables are represented and prepared for execution.
-
-The implementation opens an ELF32 file, inspects its ELF and program headers, derives segment permissions, works with page-aligned virtual-memory parameters, maps loadable program regions with `mmap`, and transfers control through the executable entry-point interface used by the course environment.
-
-**Topics:**
-
-- `Elf32_Ehdr` and `Elf32_Phdr`
-- `PT_LOAD`
-- file offsets and virtual addresses
-- page alignment
-- `mmap`
-- `PROT_READ`, `PROT_WRITE`, `PROT_EXEC`
-- linker/loader relationship
-- executable entry points
-
-## How the Projects Connect
-
-```mermaid
-flowchart LR
-    A[Shell command] --> B[fork / exec]
-    B --> C[File descriptors]
-    C --> D[Pipes and signals]
-    D --> E[Raw syscalls]
-    E --> F[ELF sections and symbols]
-    F --> G[ELF program headers]
-    G --> H[Virtual memory mapping]
-    H --> I[Program entry point]
+```text
+0x8048100: file offset 0x100
+0x8048180: zero-initialized memory (BSS); no file offset
+0x8048200: not covered by a LOAD segment
 ```
 
-Together, these modules provide hands-on exposure to the layers that application software normally hides: processes, system calls, executable formats, memory mappings, and machine-level interfaces.
+The `memory` command prints a full table with `VADDR`, exclusive `END`, `OFFSET`, `FILESZ`, `MEMSZ`, `PERM`, `ALIGN` and `ZERO`. It describes ELF metadata; it does not map or execute a program.
 
-## Build Environment
+## Repository structure
 
-The coursework targets a **32-bit x86 Linux environment**. Typical requirements include:
+```text
+cli/                        Top-level command dispatch and standalone inspector
+elf/                        Shared parser API and presentation layer
+tests/                      Synthetic ELF32/64 fixtures and regression tests
+docs/                       Architecture, design, roadmap and portfolio notes
+.github/workflows/ci.yml     Build, tests and sanitizer CI
+Makefile                    Single build entry point for integrated modules
+01-shell-basics/             Preserved original shell source
+02-shell-pipelines-job-control/  Preserved extended shell and pipeline source
+03-x86-assembly-syscalls/     Preserved NASM encoder and raw syscall source
+04-elf-static-loader/        Preserved educational loader source
+```
 
-- GCC with 32-bit support (`-m32`)
-- NASM
-- GNU Make
-- Linux or WSL with the required 32-bit development libraries
+The numbered directories are migration inputs, not additional copies of the new modules. Their historical Makefiles require course support files absent from this repository (including `LineParser`, `looper` and loader startup support). They are excluded from the default build. Their original source functionality has not been removed or represented as newly verified.
 
-Some original course support files referenced by the Makefiles, such as `LineParser.c/.h`, startup objects, helper files, or a custom linker script, were supplied separately in the course environment and are not included in the submitted archives used to build this portfolio repository.
+## How execution and memory connect
 
-## Skills Demonstrated
+A shell creates children with `fork`, connects file descriptors with `pipe`/`dup2`, and uses `execvp` to ask Linux to replace a process image. A future integrated shell will use process groups and terminal ownership to implement foreground/background job control. The existing shell sources provide the starting point; complete N-stage pipelines and POSIX-style job control are not claimed in this milestone.
 
-`C` · `Linux` · `x86 Assembly` · `System Calls` · `Processes` · `Signals` · `Pipes` · `IPC` · `File Descriptors` · `ELF` · `Symbol Tables` · `Virtual Memory` · `mmap` · `NASM` · `GCC` · `Make`
+ELF **sections** describe linker-facing organization; **program headers** describe the segments a loader needs. Segment R/W/X flags determine runtime permissions. Section A/W/X flags describe allocation, write and instruction properties and must not be mistaken for page permissions.
 
-## Resume-Friendly Summary
+For an address within the file-backed portion of a `PT_LOAD` segment:
 
-**Low-Level Linux Systems Programming Suite — C, x86 Assembly, ELF, Linux**
+```text
+file_offset = p_offset + (virtual_address - p_vaddr)
+```
 
-- Built low-level Linux components covering process creation, pipelines, I/O redirection, process control, signals, and command history using `fork`, `execvp`, `waitpid`, `pipe`, and file-descriptor manipulation.
-- Worked with raw x86 Linux system calls and ELF internals, including executable structure, program headers, file/virtual-address relationships, virtual-memory mappings, segment permissions, and executable entry points.
+The interval `[p_vaddr + p_filesz, p_vaddr + p_memsz)` must be zero-initialized. It has no file bytes, even if unrelated data happens to exist at a numerically corresponding file offset. `SHT_NOBITS` sections likewise occupy no bytes in the file.
+
+The next loader milestone will validate an ELF32 static executable, reserve its address ranges, map page-aligned segments privately, initialize BSS, apply final permissions and transfer control through a defined i386 startup contract. Parsing successfully is **not** proof an executable can safely be loaded: collision, overlap, interpreter, relocation, entry-point and stack requirements need separate loader checks. The existing course loader is not yet repaired or included in the new CLI.
+
+Networking is planned after the shell engine is reusable. A loopback TCP server will pass framed commands through the same engine, capture output through pipes and return framed results to clients. There is no network listener or remote execution feature in this release.
+
+## Testing
+
+`make test` runs 22 automated test methods, including multiple fixtures and cases per method:
+
+- Both ELF classes, headers, sections, symbol names/types/bindings and segment layouts.
+- Translation at file/BSS/end boundaries and ambiguous overlapping `PT_LOAD` ranges.
+- Sectionless binaries and `SHT_NOBITS` offsets outside the file.
+- Invalid magic/class/architecture, sizes, indexes, strings, alignments and overflows.
+- Missing files, invalid CLI arguments, truncated inputs and 80 deterministic mutations.
+- Header values and LOAD counts compared against GNU `readelf` on the built executable.
+
+`make sanitize` runs the same suite with AddressSanitizer and UndefinedBehaviorSanitizer. In restricted containers where LeakSanitizer cannot inspect `/proc`, use `ASAN_OPTIONS=detect_leaks=0 make sanitize`; this still checks memory access and undefined behavior but does **not** validate leaks. Local verification for this milestone used that setting because LeakSanitizer could not access process metadata. The CI configuration keeps normal leak detection enabled.
+
+BSS tests validate layout and address semantics; actual zero-filled mappings and execution belong to the next milestone. There are no shell, allocator or networking integration tests yet.
+
+## Limitations and next milestones
+
+Only little-endian i386 and x86-64 are accepted. Extended ELF numbering and `SHN_XINDEX` are explicitly rejected. Inspection supports relocatable, executable, shared and core file types; it is not a relocation engine, disassembler, dynamic linker or DWARF debugger. Inputs are read into memory, so very large files require corresponding memory.
+
+Implementation order and acceptance criteria are in [the roadmap](docs/roadmap.md):
+
+1. **Complete:** ELF inspector, shared parser, CLI and memory layout view.
+2. Robust static ELF32 loader and execution/BSS tests.
+3. Reusable shell with N-stage pipelines, redirection, history and job control.
+4. `ptrace` debugger with registers, stepping, continuation and exit handling.
+5. Allocator with splitting, coalescing, synchronization, statistics and benchmark.
+6. Local TCP command execution using the shell engine and framed client/server protocol.
+
+Raw x86 syscall cleanup will accompany execution integration. Build targets such as `make loader`, `make shell` and `make remote-shell` will be added with their working implementations, not as placeholders.
+
+## Resume-ready description
+
+**Mini Linux Runtime & Execution Toolkit — C, Linux, ELF, x86**
+
+Implemented a reusable ELF32/ELF64 parser and Linux CLI for inspecting executable headers, sections, symbols and memory segments; added virtual-address translation with explicit BSS handling, malformed-input validation, and regression tests against GNU readelf.
+
+See [portfolio notes](docs/portfolio-notes.md) for an honest distinction between implemented capabilities and future work. This repository does not claim kernel development, device drivers, STM32, FreeRTOS, JTAG, SPI, I2C or UART work.
 
 ## Author
 
-**Mohamed Taha**  
-GitHub: https://github.com/mohamedtah22  
-LinkedIn: https://linkedin.com/in/mohamed-taha-02314b314
+**Mohamed Taha** · [GitHub](https://github.com/mohamedtah22) · [LinkedIn](https://linkedin.com/in/mohamed-taha-02314b314)

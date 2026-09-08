@@ -1,6 +1,6 @@
 # ELF Object Format and Symbol Analysis
 
-This note summarizes the ELF object-file concepts covered before implementing the static loader.
+The integrated implementation is in `elf/elf_parser.c`, exposed through `mini-runtime elf` and `mini-runtime memory`. This note explains the metadata those commands report.
 
 ## ELF Overview
 
@@ -8,7 +8,7 @@ ELF stands for **Executable and Linkable Format** and is the binary format used 
 
 ## Structures and Tools
 
-The lab material focuses on:
+The parser and inspector cover:
 
 - the ELF header
 - section headers
@@ -28,13 +28,17 @@ Important ELF questions include:
 
 ## Mapping a Symbol to a File Offset
 
-To locate a function inside the file, first determine which section contains it. Its file offset can then be calculated as:
+For a defined symbol in a linked executable, locate its file-backed section and verify its value lies inside that section. Its file offset is then:
 
 ```text
 section_file_offset + function_virtual_address - section_virtual_address
 ```
 
 The subtraction converts the function's virtual address into an offset relative to the beginning of its section; adding the section's file offset converts that relative position into a file position.
+
+For ET_REL object files, defined symbol values are normally section-relative: use `section_file_offset + symbol_value`. Undefined, absolute and common symbols do not generally identify bytes in a file. Never apply the formula to SHT_NOBITS.
+
+The CLI address translator instead uses PT_LOAD program headers and rejects unmapped or ambiguous addresses. The BSS portion has no file offset.
 
 ## Why This Matters for the Loader
 

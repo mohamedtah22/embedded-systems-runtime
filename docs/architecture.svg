@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="660" viewBox="0 0 920 660" role="img" aria-labelledby="title desc">
+<title id="title">Mini Linux Runtime and Execution Toolkit architecture</title>
+<desc id="desc">Implemented CLI dispatches to ELF inspection and memory layout using one parser. Shell, loader, tracing, allocator and networking are planned integrations.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#718096"/></marker></defs>
+<rect width="920" height="660" rx="16" fill="#101827"/>
+<g font-family="Arial, sans-serif" text-anchor="middle">
+<text x="460" y="42" fill="#f1f5f9" font-size="23" font-weight="bold">Mini Linux Runtime &amp; Execution Toolkit</text>
+<text x="460" y="70" fill="#b7c5d9" font-size="14">Solid: implemented milestone 1 · Dashed: planned integration</text>
+<g stroke="#718096" stroke-width="2" fill="none" marker-end="url(#arrow)">
+<path d="M460 135 V175 H245 V210"/><path d="M460 175 H675 V210"/>
+<path d="M245 275 V305 H460 V330"/><path d="M675 275 V305 H460"/>
+<path d="M460 400 V440" stroke-dasharray="6 5"/>
+<path d="M260 478 H310" stroke-dasharray="6 5"/><path d="M610 478 H660" stroke-dasharray="6 5"/>
+<path d="M160 515 V555 H460 V580" stroke-dasharray="6 5"/>
+</g>
+<g fill="#123c3b" stroke="#47c7ab" stroke-width="2">
+<rect x="310" y="90" width="300" height="55" rx="10"/>
+<rect x="90" y="210" width="310" height="65" rx="10"/>
+<rect x="520" y="210" width="310" height="65" rx="10"/>
+<rect x="280" y="330" width="360" height="70" rx="10"/>
+</g>
+<g fill="#e2fff6" font-size="18">
+<text x="460" y="124">mini-runtime CLI</text>
+<text x="245" y="237">elf</text><text x="245" y="259" font-size="13">Headers · Sections · Symbols · Addresses</text>
+<text x="675" y="237">memory</text><text x="675" y="259" font-size="13">LOAD ranges · Permissions · BSS sizes</text>
+<text x="460" y="358">Shared ELF parser</text><text x="460" y="382" font-size="14">ELF32 / ELF64 · Bounds checks · Normalized API</text>
+</g>
+<g fill="#202c40" stroke="#8393ad" stroke-width="2" stroke-dasharray="6 5">
+<rect x="60" y="440" width="200" height="75" rx="10"/>
+<rect x="310" y="440" width="300" height="75" rx="10"/>
+<rect x="660" y="440" width="200" height="75" rx="10"/>
+<rect x="230" y="580" width="460" height="48" rx="10"/>
+</g>
+<g fill="#d1d9e6" font-size="17">
+<text x="160" y="467">Shell engine</text><text x="160" y="493" font-size="13">Processes · FDs · Pipes</text>
+<text x="460" y="467">Static loader / virtual memory</text><text x="460" y="493" font-size="13">Mappings · Zero-fill · Entry point</text>
+<text x="760" y="467">ptrace debugger</text><text x="760" y="493" font-size="13">Registers · Steps · Signals</text>
+<text x="460" y="610">Allocator · Raw syscalls · Local TCP client/server</text>
+</g>
+</g>
+</svg>
