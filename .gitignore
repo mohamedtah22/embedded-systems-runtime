@@ -1,0 +1,11 @@
+*.o
+*.out
+*.exe
+*.bin
+*.so
+*.a
+core
+core.*
+.DS_Store
+.vscode/
+.idea/
