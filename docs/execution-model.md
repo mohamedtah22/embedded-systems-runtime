@@ -1,6 +1,6 @@
-# Linux Execution Model — How the Projects Connect
+# Linux Execution Model
 
-This note summarizes the systems concepts exercised across the repository.
+This note explains the target execution model. The integrated CLI currently implements ELF inspection and memory-layout reporting. Shell and loader source is preserved from the earlier coursework and is not yet integrated or verified by the top-level build.
 
 ## From a shell command to a process
 
@@ -20,7 +20,7 @@ At a lower layer, operations such as reading, writing, opening files, and termin
 
 ## Executable loading
 
-`exec` depends on the OS understanding the executable file format. The ELF loader project examines that next layer directly: it reads the ELF header and program headers, identifies loadable segments, derives memory permissions, maps segments into virtual memory, and transfers control to the executable's entry point.
+`exec` depends on the OS understanding the executable file format. The shared ELF parser now validates the ELF header and program headers, identifies loadable segments and describes their memory permissions. The next loader milestone will implement verified mappings, BSS initialization and entry-point transfer. The preserved original loader attempts these operations but is incomplete and requires absent startup support.
 
 ## Why this matters for low-level software
 

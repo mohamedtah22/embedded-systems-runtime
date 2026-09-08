@@ -9,3 +9,7 @@ core.*
 .DS_Store
 .vscode/
 .idea/
+
+/build/
+/build-sanitize/
+__pycache__/
