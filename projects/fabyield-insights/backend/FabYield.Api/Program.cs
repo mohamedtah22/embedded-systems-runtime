@@ -44,7 +44,7 @@ app.MapGet("/api/alerts", (SnapshotStore store, string? severity) =>
     if (severity is not null && severity is not ("high" or "medium"))
         return Results.BadRequest(new { error = "severity must be high or medium" });
     return WithSnapshot(store, data => Results.Ok(
-        data.Alerts.Where(a => severity is null || a.Severity == severity).ToArray())));
+        data.Alerts.Where(a => severity is null || a.Severity == severity).ToArray()));
 });
 
 app.MapGet("/api/notes", (SnapshotStore store, bool? flagged) =>
