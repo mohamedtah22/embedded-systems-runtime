@@ -1,0 +1,21 @@
+{
+  "scenario": "udp-datapath-validation",
+  "frames_verified": 100,
+  "crc_faults_injected": 10,
+  "replays_injected": 7,
+  "elapsed_seconds": 0.0035,
+  "frames_per_second": 28750.8,
+  "counters": {
+    "datagrams": 118,
+    "accepted": 100,
+    "invalid": 17,
+    "crc_errors": 10,
+    "length_errors": 0,
+    "replay_errors": 7,
+    "header_errors": 0,
+    "type_errors": 0,
+    "bytes_accepted": 8292,
+    "sessions": 1
+  },
+  "result": "PASS"
+}

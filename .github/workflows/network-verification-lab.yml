@@ -1,0 +1,48 @@
+name: Network Verification Lab
+
+on:
+  push:
+    paths:
+      - 'projects/network-verification-lab/**'
+      - '.github/workflows/network-verification-lab.yml'
+  pull_request:
+    paths:
+      - 'projects/network-verification-lab/**'
+      - '.github/workflows/network-verification-lab.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/network-verification-lab
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Compile C++17 datapath
+        run: make build
+      - name: Run integration and negative tests
+        run: |
+          mkdir -p reports
+          PYTHONPATH=python python -m pytest -v tests --junitxml=reports/junit.xml
+      - name: Run reproducible fault-injection demo
+        run: |
+          PYTHONPATH=python python python/traffic_lab.py \
+            --binary ./build/nver-datapath \
+            --count 100 --corrupt-every 10 --replay-every 13 \
+            --json reports/traffic-summary.json
+      - name: Upload JUnit and traffic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-verification-reports
+          path: projects/network-verification-lab/reports/
