@@ -1,0 +1,43 @@
+# Only the management QA runner can reach the BMC. Host agent is on host_net.
+# Demo secrets are intentionally NONPRODUCTION and isolated to test containers.
+services:
+  host-agent:
+    build: .
+    image: host-management-qa-lab:local
+    command: python -m src.host_agent --bind 0.0.0.0 --port 8081
+    environment:
+      HOST_AGENT_KEY: docker-host-agent-demo-secret
+    networks: [host_net]
+  bmc:
+    build: .
+    image: host-management-qa-lab:local
+    depends_on: [host-agent]
+    command: >-
+      sh -c 'sh scripts/gen_dev_cert.sh /certs bmc &&
+      python -m src.bmc --bind 0.0.0.0 --port 8443
+      --agent-url http://host-agent:8081 --cert /certs/cert.pem --key /certs/key.pem'
+    environment:
+      HOST_AGENT_KEY: docker-host-agent-demo-secret
+      BMC_ADMIN_TOKEN: docker-test-admin-token
+      BMC_VIEWER_TOKEN: docker-test-viewer-token
+    volumes: [dev_certs:/certs]
+    networks: [mgmt_net, host_net]
+  qa-runner:
+    build: .
+    image: host-management-qa-lab:local
+    depends_on: [bmc]
+    command: python -m pytest -q tests --junitxml=reports/junit.xml
+    environment:
+      BMC_BASE_URL: https://bmc:8443
+      BMC_CA_CERT: /certs/cert.pem
+      BMC_ADMIN_TOKEN: docker-test-admin-token
+      BMC_VIEWER_TOKEN: docker-test-viewer-token
+      VERIFY_ISOLATED_TOPOLOGY: '1'
+    volumes: [dev_certs:/certs:ro]
+    networks: [mgmt_net]
+networks:
+  mgmt_net: {}
+  host_net:
+    internal: true
+volumes:
+  dev_certs: {}
