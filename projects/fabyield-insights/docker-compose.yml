@@ -1,0 +1,37 @@
+services:
+  etl:
+    build:
+      context: .
+      dockerfile: pipeline/Dockerfile
+    volumes:
+      - insights_data:/shared
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/FabYield.Api/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      SNAPSHOT_PATH: /data/snapshot.json
+    volumes:
+      - insights_data:/data:ro
+    depends_on:
+      etl:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      API_HOST: api
+    ports:
+      - "127.0.0.1:8088:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  insights_data:

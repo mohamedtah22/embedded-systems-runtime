@@ -1,0 +1,78 @@
+name: FabYield Insights CI
+on:
+  push:
+    paths:
+      - 'projects/fabyield-insights/**'
+      - '.github/workflows/fabyield-insights-ci.yml'
+  pull_request:
+    paths:
+      - 'projects/fabyield-insights/**'
+      - '.github/workflows/fabyield-insights-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/fabyield-insights
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify pipeline logic
+        run: python -m unittest discover -s pipeline/tests -v
+      - name: Create synthetic manufacturing data
+        run: |
+          python pipeline/generate_demo.py --output data/events.csv --notes data/notes.jsonl
+          python pipeline/transform.py --input data/events.csv --notes data/notes.jsonl --output data/snapshot.json
+      - name: Compile ASP.NET Core backend
+        run: dotnet build backend/FabYield.Api/FabYield.Api.csproj --configuration Release
+      - name: HTTP integration smoke against real ASP.NET Core
+        run: |
+          SNAPSHOT_PATH="$PWD/data/snapshot.json" dotnet run --project backend/FabYield.Api --configuration Release --no-build --urls http://127.0.0.1:8080 > /tmp/fabyield-api.log 2>&1 &
+          API_PID=$!
+          trap 'kill "$API_PID" 2>/dev/null || true' EXIT
+          python - <<'PY'
+          import time,urllib.request
+          for _ in range(60):
+            try:
+              with urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=1) as r:
+                if r.status == 200:break
+            except Exception: time.sleep(.5)
+          else:raise SystemExit('backend failed to become healthy')
+          PY
+          python backend/smoke_api.py
+      - name: Build typed React frontend
+        run: |
+          cd frontend
+          npm install --no-audit --no-fund
+          npm run build
+      - name: Validate Docker Compose configuration
+        run: docker compose config -q
+      - name: Docker Compose smoke (three containers)
+        run: |
+          docker compose up --build -d
+          for i in $(seq 1 70); do
+            if curl -fsS http://127.0.0.1:8088/api/health >/dev/null; then break; fi
+            sleep 3
+          done
+          curl -fsS http://127.0.0.1:8088/api/health
+          curl -fsS http://127.0.0.1:8088/ | grep -q 'root'
+          python backend/smoke_api.py http://127.0.0.1:8088
+      - name: Docker diagnostics on failure
+        if: failure()
+        run: docker compose logs --tail=100 || true
+      - name: Stop containers
+        if: always()
+        run: docker compose down --volumes --remove-orphans || true

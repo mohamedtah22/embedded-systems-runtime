@@ -1,0 +1,60 @@
+# EXAMPLE ONLY: substitute published container images and verify in a real cluster.
+# The init container writes generated synthetic data into an emptyDir shared with the API.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fabyield-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fabyield
+  template:
+    metadata:
+      labels:
+        app: fabyield
+    spec:
+      volumes:
+        - name: analytics
+          emptyDir: {}
+      initContainers:
+        - name: etl
+          image: CHANGE_ME/fabyield-etl:latest
+          volumeMounts:
+            - name: analytics
+              mountPath: /shared
+      containers:
+        - name: api
+          image: CHANGE_ME/fabyield-api:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SNAPSHOT_PATH
+              value: /data/snapshot.json
+          volumeMounts:
+            - name: analytics
+              mountPath: /data
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            periodSeconds: 10
+        - name: dashboard
+          image: CHANGE_ME/fabyield-dashboard:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: API_HOST
+              value: "127.0.0.1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fabyield-demo
+spec:
+  selector:
+    app: fabyield
+  ports:
+    - port: 80
+      targetPort: 80
