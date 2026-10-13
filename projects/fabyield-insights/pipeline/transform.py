@@ -114,6 +114,7 @@ def write_atomic(destination:Path,obj:dict)->None:
             json.dump(obj,f,indent=2,ensure_ascii=False,allow_nan=False)
             f.write('\n')
             f.flush();os.fsync(f.fileno())
+            os.fchmod(f.fileno(), 0o644)
         os.replace(temp,destination)
     finally:
         if temp and temp.exists():temp.unlink()
