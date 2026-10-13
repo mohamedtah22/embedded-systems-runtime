@@ -25,6 +25,7 @@ public sealed class SnapshotStore
             return snapshot;
         }
         catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
         catch (JsonException) { return null; }
     }
 }
