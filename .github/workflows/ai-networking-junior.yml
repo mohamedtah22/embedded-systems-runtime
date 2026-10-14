@@ -1,0 +1,30 @@
+name: AI Networking Junior Lab
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux-build-and-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependencies
+        run: python3 -m pip install -r projects/ai-networking-benchmark-lab/requirements-dev.txt
+      - name: Configure and build strict C++17
+        run: cmake -S projects/ai-networking-benchmark-lab -B projects/ai-networking-benchmark-lab/build -DCMAKE_BUILD_TYPE=Release && cmake --build projects/ai-networking-benchmark-lab/build -j2
+      - name: Run CTest
+        run: ctest --test-dir projects/ai-networking-benchmark-lab/build --output-on-failure
+      - name: Run Python integration tests
+        working-directory: projects/ai-networking-benchmark-lab
+        run: python3 -m pytest -q tests --junitxml=reports/junit.xml
+      - name: Benchmark smoke and report
+        working-directory: projects/ai-networking-benchmark-lab
+        run: python3 scripts/bench_matrix.py --binary ./build/tensor_transport --iters 20 --out reports/benchmarks.json
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-networking-junior-reports
+          path: projects/ai-networking-benchmark-lab/reports/
