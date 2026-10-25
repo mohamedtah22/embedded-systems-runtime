@@ -99,7 +99,10 @@ int event_demo_cli_main(int argc, char **argv) {
                     ticks += (int)expirations;
                     if (ticks >= ticks_target / 2 && worker_events == 0) {
                         uint64_t one = 1;
-                        (void)write(efd, &one, sizeof(one));
+                        if (write(efd, &one, sizeof(one)) != (ssize_t)sizeof(one)) {
+                            perror("eventfd write");
+                            goto out;
+                        }
                     }
                 }
             } else if (events[i].data.u32 == TAG_EVENT) {
@@ -125,3 +128,4 @@ out:
     (void)pthread_sigmask(SIG_SETMASK, &oldmask, NULL);
     return rc;
 }
+

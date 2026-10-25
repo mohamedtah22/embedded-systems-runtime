@@ -1,10 +1,27 @@
-# Mini Linux Runtime & Execution Toolkit
+# Mini Linux Runtime & Firmware Simulation Labs
 
 A portfolio-grade **C/Linux systems project** that follows program execution from a typed command down through processes, file descriptors, ELF loading, virtual memory, tracing, and networking — then extends the same runtime into a **hardware-free embedded Linux simulation platform** with ARM64 cross compilation, QEMU, bounded queues, watchdog recovery, virtual serial transport, and a custom binary protocol.
 
 The project started from systems-programming coursework and was reorganized into one integrated engineering system. Production modules no longer depend on the original course parser/startup helpers; the original coursework is preserved only under `legacy/` for provenance.
 
 > **No physical hardware is required.** The embedded side is intentionally software-only and does not claim STM32, FreeRTOS, GPIO/SPI/I2C, DMA, JTAG, or board bring-up.
+
+## Firmware-focused verification
+
+- [NIC TX/RX descriptor-ring lab](docs/nic-descriptor-model.md): bounded C11
+  ownership rings, release/acquire ordering, completion/reclaim, interrupt-status
+  modelling, error injection, and native/AArch64 tests. This is a software model.
+- Worker liveness is independent of the sensor rate. Watchdog recovery releases
+  an injected stall and waits for the processing worker's own heartbeat.
+- Ring-buffer deadlines use a single monotonic timeout across spurious wakeups.
+- [C++ protocol verification](projects/network-verification-lab): 42 regression
+  cases, bounded 64-session state, and sequence-number rollover handling.
+
+```bash
+make test
+make nic-model-sanitize
+make qemu-smoke
+```
 
 ## System Architecture
 
@@ -242,7 +259,7 @@ Implemented concepts:
 - dropped-sample accounting
 - timer jitter measurement
 - deadline-miss counters
-- watchdog heartbeat monitoring
+- worker heartbeat monitoring independent of sampling rate
 - optional injected processing stalls
 
 ```bash
@@ -473,3 +490,4 @@ It does **not** claim hardware driver development, MCU peripheral programming, o
 Mohamed Taha  
 GitHub: https://github.com/mohamedtah22  
 LinkedIn: https://linkedin.com/in/mohamed-taha-02314b314
+

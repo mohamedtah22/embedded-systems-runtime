@@ -1,4 +1,5 @@
 CC ?= gcc
+ASAN_OPTIONS ?= detect_leaks=1
 CFLAGS ?= -std=c11 -O2 -g -Wall -Wextra -Wpedantic -D_GNU_SOURCE
 CPPFLAGS := -Iinclude -Ishell -Ielf -Iloader -Iallocator -Inetwork -Iprotocol -Irealtime -Iserial -Itarget -Ifirmware
 LDFLAGS ?=
@@ -60,9 +61,10 @@ $(BIN)/embedded-target-arm64: $(TARGET_STANDALONE_SRC)
 	$(AARCH64_CC) $(CPPFLAGS) $(CFLAGS) $^ -pthread -lm -o $@
 	@echo "built ARM64 target simulator: $@"
 
-qemu qemu-smoke: $(BIN)/embedded-target-arm64
+qemu qemu-smoke: $(BIN)/embedded-target-arm64 $(BIN)/test-nic-model-arm64
 	@command -v $(QEMU_AARCH64) >/dev/null || { echo "$(QEMU_AARCH64) is required"; exit 1; }
 	$(QEMU_AARCH64) -L $(AARCH64_SYSROOT) $(BIN)/embedded-target-arm64 --self-test
+	$(QEMU_AARCH64) -L $(AARCH64_SYSROOT) $(BIN)/test-nic-model-arm64
 
 asm:
 	@command -v nasm >/dev/null || { echo "nasm is required for the optional 32-bit assembly target"; exit 1; }
@@ -88,6 +90,27 @@ $(BUILD)/tests/test_ring_buffer: tests/test_ring_buffer.c realtime/ring_buffer.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -pthread -o $@
 
+$(BUILD)/tests/test_target_runtime: tests/test_target_runtime.c target/target_core.c realtime/ring_buffer.c runtime/logger.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -pthread -o $@
+
+$(BUILD)/tests/test_nic_model: tests/test_nic_model.c firmware/nic_model.c include/nic_model.h
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_nic_model.c firmware/nic_model.c -pthread -o $@
+
+.PHONY: nic-model-test nic-model-sanitize
+nic-model-test: $(BUILD)/tests/test_nic_model
+	$(BUILD)/tests/test_nic_model
+
+nic-model-sanitize:
+	@mkdir -p $(BUILD)/tests
+	$(CC) $(CPPFLAGS) $(CFLAGS) -fsanitize=address,undefined -fno-omit-frame-pointer tests/test_nic_model.c firmware/nic_model.c -pthread -o $(BUILD)/tests/test_nic_model_sanitize
+	ASAN_OPTIONS=$(ASAN_OPTIONS) $(BUILD)/tests/test_nic_model_sanitize
+
+$(BIN)/test-nic-model-arm64: tests/test_nic_model.c firmware/nic_model.c include/nic_model.h
+	@mkdir -p $(BIN)
+	$(AARCH64_CC) $(CPPFLAGS) $(CFLAGS) tests/test_nic_model.c firmware/nic_model.c -pthread -o $@
+
 $(BUILD)/tests/freestanding.o: tests/assets/freestanding.S
 	@mkdir -p $(dir $@)
 	$(CC) -c -nostdlib -fno-pie $< -o $@
@@ -99,11 +122,13 @@ $(BUILD)/tests/test_elf: tests/test_elf.c elf/elf_parser.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -o $@
 
-test: $(BIN)/mlrt $(BIN)/embedded-target $(BUILD)/tests/test_parser $(BUILD)/tests/test_allocator $(BUILD)/tests/test_protocol $(BUILD)/tests/test_ring_buffer $(BUILD)/tests/test_elf $(BUILD)/tests/freestanding
+test: $(BUILD)/tests/test_nic_model $(BUILD)/tests/test_target_runtime $(BIN)/mlrt $(BIN)/embedded-target $(BUILD)/tests/test_parser $(BUILD)/tests/test_allocator $(BUILD)/tests/test_protocol $(BUILD)/tests/test_ring_buffer $(BUILD)/tests/test_elf $(BUILD)/tests/freestanding
 	$(BUILD)/tests/test_parser
 	$(BUILD)/tests/test_allocator
 	$(BUILD)/tests/test_protocol
 	$(BUILD)/tests/test_ring_buffer
+	$(BUILD)/tests/test_target_runtime
+	$(BUILD)/tests/test_nic_model
 	$(BUILD)/tests/test_elf $(BIN)/mlrt
 	$(BIN)/mlrt load $(BUILD)/tests/freestanding --map
 	bash ./tests/test_smoke.sh
@@ -127,3 +152,4 @@ help:
 	  'make asm             optional NASM 32-bit demo' \
 	  'make test            run automated tests' \
 	  'make clean'
+

@@ -62,3 +62,6 @@ The GitHub Actions workflow installs Python, builds C++ with `-Wall -Wextra -Wpe
 3. Inspect the JSON `counters` and compare `accepted`, `invalid`, and fault categories.
 4. Optionally capture traffic: `sudo tcpdump -ni lo udp port <actual-port> -w trace.pcap`.
 5. Confirm whether the failure originated in header validation, length/CRC validation, replay detection, or the Python oracle.
+
+
+Additional regressions cover sequence rollover, half-range ambiguity, 64-session capacity/reset, and strict port parsing. The complete suite currently collects 42 pytest cases.

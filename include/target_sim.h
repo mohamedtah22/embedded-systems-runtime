@@ -33,6 +33,7 @@ typedef struct {
     atomic_uint_fast64_t produced;
     atomic_uint_fast64_t processed;
     atomic_uint_fast64_t last_processed_ns;
+    atomic_uint_fast64_t worker_heartbeat_ns;
     atomic_uint_fast64_t watchdog_recoveries;
     atomic_uint_fast64_t crc_errors;
     atomic_uint_fast64_t freeze_until_ns;
@@ -52,3 +53,4 @@ int target_client_cli_main(int argc, char **argv);
 int target_server_self_test(void);
 
 #endif
+

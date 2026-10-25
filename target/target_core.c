@@ -92,36 +92,36 @@ static void *processing_worker(void *arg) {
         if (freeze_until && now_ns() >= freeze_until) atomic_store(&ctx->freeze_until_ns, 0);
 
         mlrt_target_sample s;
-        if (mlrt_ring_wait_pop(&ctx->queue, &s, 100) != 0) continue;
-        (void)s;
-        atomic_fetch_add(&ctx->processed, 1);
-        atomic_store(&ctx->last_processed_ns, now_ns());
+        if (mlrt_ring_wait_pop(&ctx->queue, &s, 100) == 0) {
+            (void)s;
+            atomic_fetch_add(&ctx->processed, 1);
+            atomic_store(&ctx->last_processed_ns, now_ns());
+        }
+        // Liveness is independent of the configured sensor sampling rate.
+        atomic_store(&ctx->worker_heartbeat_ns, now_ns());
     }
     return NULL;
 }
 
 static void *watchdog_worker(void *arg) {
     mlrt_target_ctx *ctx = arg;
-    int latched = 0;
     while (atomic_load(&ctx->running)) {
         usleep(50000);
-        uint64_t last = atomic_load(&ctx->last_processed_ns);
-        uint64_t age = now_ns() - last;
-        if (age > 500000000ull && atomic_load(&ctx->state) == MLRT_TARGET_RUNNING) {
-            if (!latched) {
-                latched = 1;
-                atomic_store(&ctx->state, MLRT_TARGET_FAULT);
-                atomic_fetch_add(&ctx->watchdog_recoveries, 1);
-                mlrt_log(MLRT_LOG_WARN, "TARGET", "watchdog detected stalled processing task");
-                usleep(100000);
-                atomic_store(&ctx->state, MLRT_TARGET_RECOVERY);
-                atomic_store(&ctx->last_processed_ns, now_ns());
-                usleep(50000);
-                atomic_store(&ctx->state, MLRT_TARGET_RUNNING);
-                mlrt_log(MLRT_LOG_INFO, "TARGET", "watchdog recovery completed");
-            }
+        uint64_t age = now_ns() - atomic_load(&ctx->worker_heartbeat_ns);
+        int expected = MLRT_TARGET_RUNNING;
+        if (age > 500000000ull && atomic_compare_exchange_strong(
+                &ctx->state, &expected, MLRT_TARGET_FAULT)) {
+            mlrt_log(MLRT_LOG_WARN, "TARGET", "watchdog detected stalled worker");
+            // Recover this simulator's supported fault by releasing the stall.
+            // The worker itself must acknowledge liveness before RUNNING.
+            atomic_store(&ctx->freeze_until_ns, 0);
+            atomic_store(&ctx->state, MLRT_TARGET_RECOVERY);
         } else if (age < 200000000ull) {
-            latched = 0;
+            expected = MLRT_TARGET_RECOVERY;
+            if (atomic_compare_exchange_strong(&ctx->state, &expected, MLRT_TARGET_RUNNING)) {
+                atomic_fetch_add(&ctx->watchdog_recoveries, 1);
+                mlrt_log(MLRT_LOG_INFO, "TARGET", "worker heartbeat confirms recovery");
+            }
         }
     }
     return NULL;
@@ -138,6 +138,7 @@ int mlrt_target_init(mlrt_target_ctx *ctx, unsigned rate_hz) {
     atomic_init(&ctx->produced, 0);
     atomic_init(&ctx->processed, 0);
     atomic_init(&ctx->last_processed_ns, now_ns());
+    atomic_init(&ctx->worker_heartbeat_ns, now_ns());
     atomic_init(&ctx->watchdog_recoveries, 0);
     atomic_init(&ctx->crc_errors, 0);
     atomic_init(&ctx->freeze_until_ns, 0);
@@ -218,6 +219,7 @@ static void reset_runtime(mlrt_target_ctx *ctx) {
     atomic_store(&ctx->freeze_until_ns, 0);
     atomic_store(&ctx->started_ns, now_ns());
     atomic_store(&ctx->last_processed_ns, now_ns());
+    atomic_store(&ctx->worker_heartbeat_ns, now_ns());
     usleep(20000);
     atomic_store(&ctx->state, MLRT_TARGET_RUNNING);
 }
@@ -283,3 +285,4 @@ int mlrt_target_handle_packet(mlrt_target_ctx *ctx, const mlrt_packet *req, mlrt
             return 0;
     }
 }
+

@@ -22,6 +22,7 @@ constexpr std::uint32_t MAGIC = 0x4e564552; // NVER
 constexpr std::uint8_t VERSION = 1;
 constexpr std::size_t HEADER_BYTES = 24;
 constexpr std::size_t MAX_PAYLOAD = 1400;
+constexpr std::size_t MAX_SESSIONS = 64;
 constexpr std::size_t MAX_DATAGRAM = 65536;
 enum class Kind : std::uint8_t {
   Data = 1, Ack = 2, StatsRequest = 3, StatsReply = 4,
@@ -93,6 +94,7 @@ struct Counters {
   std::uint64_t replay_errors = 0;
   std::uint64_t header_errors = 0;
   std::uint64_t type_errors = 0;
+  std::uint64_t session_errors = 0;
   std::uint64_t bytes_accepted = 0;
 };
 
@@ -126,7 +128,15 @@ class Datapath {
     }
     if (h.kind == static_cast<std::uint8_t>(Kind::Data)) {
       const auto it = last_seq_.find(h.session);
-      if (it != last_seq_.end() && h.sequence <= it->second) {
+      if (it == last_seq_.end() && last_seq_.size() == MAX_SESSIONS) {
+        ++counts_.invalid;
+        ++counts_.session_errors;
+        return {};
+      }
+      // Serial-number order accepts wraparound; jumps >= half the space
+      // are intentionally ambiguous and rejected.
+      const auto delta = it == last_seq_.end() ? 1U : h.sequence - it->second;
+      if (delta == 0 || delta >= 0x80000000U) {
         ++counts_.invalid;
         ++counts_.replay_errors;
         return {};
@@ -162,6 +172,7 @@ class Datapath {
         << ",\"replay_errors\":" << counts_.replay_errors
         << ",\"header_errors\":" << counts_.header_errors
         << ",\"type_errors\":" << counts_.type_errors
+        << ",\"session_errors\":" << counts_.session_errors
         << ",\"bytes_accepted\":" << counts_.bytes_accepted
         << ",\"sessions\":" << last_seq_.size() << "}";
     return out.str();
@@ -225,6 +236,8 @@ int main(int argc, char** argv) {
     } else if (arg == "--port" && i+1<argc) {
       try {
         const std::string v = argv[++i];
+        if (v.empty() || v.find_first_not_of("0123456789") != std::string::npos)
+          throw std::invalid_argument("port");
         const auto parsed = std::stoi(v);
         if (parsed < 0 || parsed > 65535) throw std::out_of_range("port");
         port = parsed;
@@ -246,3 +259,4 @@ int main(int argc, char** argv) {
     return 1;
   }
 }
+

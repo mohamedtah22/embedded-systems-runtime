@@ -13,6 +13,8 @@ jobs:
         run: make -j2
       - name: Run native tests
         run: make test
+      - name: Descriptor ownership under ASan and UBSan
+        run: make nic-model-sanitize
 
   arm64-qemu:
     runs-on: ubuntu-latest
@@ -26,3 +28,4 @@ jobs:
         run: make arm64-target
       - name: Execute ARM64 target self-test under QEMU
         run: make qemu-smoke
+

@@ -37,9 +37,9 @@ def test_binary_payload_including_nulls(server):
 
 
 def test_sequence_increases(server):
-    for sequence in [0, 1, 10, 2**32 - 1]:
+    for sequence in [0, 1, 10, 2**31, 2**32 - 1]:
         assert transact(server, Packet(DATA, 3, sequence)).kind == ACK
-    assert stats(server)["accepted"] == 4
+    assert stats(server)["accepted"] == 5
 
 
 def test_duplicate_sequence_dropped(server):
@@ -117,7 +117,7 @@ def test_stats_are_machine_readable(server):
     assert record == {
         "datagrams": 1, "accepted": 0, "invalid": 0,
         "crc_errors": 0, "length_errors": 0, "replay_errors": 0,
-        "header_errors": 0, "type_errors": 0, "bytes_accepted": 0, "sessions": 0,
+        "header_errors": 0, "type_errors": 0, "session_errors": 0, "bytes_accepted": 0, "sessions": 0,
     }
     assert record["datagrams"] == record["accepted"] + record["invalid"] + 1
 
@@ -153,3 +153,39 @@ def test_reset_helper(server):
     transact(server, Packet(DATA, 1, 1))
     reset(server)
     assert stats(server)["accepted"] == 0
+
+
+
+def test_sequence_wraparound_and_old_packet(server):
+    for seq in [2**32-2, 2**32-1, 0, 1]:
+        assert transact(server, Packet(DATA, 9, seq)).kind == ACK
+    send_and_expect_drop(server, Packet(DATA, 9, 2**32-1).encode())
+    record = wait_counter(server, "replay_errors", 1)
+    assert record["accepted"] == 4
+
+
+def test_ambiguous_half_range_sequence_is_rejected(server):
+    transact(server, Packet(DATA, 9, 0))
+    send_and_expect_drop(server, Packet(DATA, 9, 2**31).encode())
+    assert wait_counter(server, "replay_errors", 1)["accepted"] == 1
+
+
+def test_session_state_is_bounded_and_reset_releases_capacity(server):
+    for session in range(64):
+        assert transact(server, Packet(DATA, session, 1)).kind == ACK
+    send_and_expect_drop(server, Packet(DATA, 64, 1).encode())
+    record = wait_counter(server, "session_errors", 1)
+    assert record["sessions"] == 64
+    assert record["accepted"] == 64
+    assert transact(server, Packet(DATA, 0, 2)).kind == ACK
+    reset(server)
+    assert transact(server, Packet(DATA, 64, 1)).kind == ACK
+
+
+@pytest.mark.parametrize("port", ["12oops", "-1", "65536"])
+def test_cli_rejects_invalid_port(port, compile_datapath):
+    import subprocess
+    from conftest import BINARY
+    result = subprocess.run([str(BINARY), "--port", port], capture_output=True, text=True, timeout=2)
+    assert result.returncode == 2
+    assert "invalid port" in result.stderr

@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <stdint.h>
 #include <time.h>
 
 static unsigned char *slot(mlrt_ring_buffer *rb, size_t index) {
@@ -9,13 +10,21 @@ static unsigned char *slot(mlrt_ring_buffer *rb, size_t index) {
 }
 
 int mlrt_ring_init(mlrt_ring_buffer *rb, void *storage, size_t capacity, size_t item_size) {
-    if (!rb || !storage || capacity == 0 || item_size == 0) return -1;
+    if (!rb || !storage || capacity == 0 || item_size == 0 || capacity > SIZE_MAX / item_size) return -1;
     memset(rb, 0, sizeof(*rb));
     rb->storage = (unsigned char *)storage;
     rb->capacity = capacity;
     rb->item_size = item_size;
     if (pthread_mutex_init(&rb->lock, NULL) != 0) return -1;
-    if (pthread_cond_init(&rb->not_empty, NULL) != 0) {
+    pthread_condattr_t attr;
+    if (pthread_condattr_init(&attr) != 0) {
+        pthread_mutex_destroy(&rb->lock);
+        return -1;
+    }
+    int rc = pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+    if (rc == 0) rc = pthread_cond_init(&rb->not_empty, &attr);
+    pthread_condattr_destroy(&attr);
+    if (rc != 0) {
         pthread_mutex_destroy(&rb->lock);
         return -1;
     }
@@ -66,7 +75,7 @@ int mlrt_ring_pop(mlrt_ring_buffer *rb, void *item) {
 }
 
 static void deadline_from_now(struct timespec *ts, int timeout_ms) {
-    clock_gettime(CLOCK_REALTIME, ts);
+    clock_gettime(CLOCK_MONOTONIC, ts);
     ts->tv_sec += timeout_ms / 1000;
     ts->tv_nsec += (long)(timeout_ms % 1000) * 1000000L;
     if (ts->tv_nsec >= 1000000000L) {
@@ -77,6 +86,8 @@ static void deadline_from_now(struct timespec *ts, int timeout_ms) {
 
 int mlrt_ring_wait_pop(mlrt_ring_buffer *rb, void *item, int timeout_ms) {
     if (!rb || !item) return -1;
+    struct timespec deadline;
+    if (timeout_ms >= 0) deadline_from_now(&deadline, timeout_ms);
     pthread_mutex_lock(&rb->lock);
     while (rb->count == 0) {
         if (timeout_ms < 0) {
@@ -85,8 +96,6 @@ int mlrt_ring_wait_pop(mlrt_ring_buffer *rb, void *item, int timeout_ms) {
                 return -1;
             }
         } else {
-            struct timespec deadline;
-            deadline_from_now(&deadline, timeout_ms);
             int rc = pthread_cond_timedwait(&rb->not_empty, &rb->lock, &deadline);
             if (rc == ETIMEDOUT) {
                 pthread_mutex_unlock(&rb->lock);
@@ -115,3 +124,4 @@ void mlrt_ring_get_stats(mlrt_ring_buffer *rb, mlrt_ring_stats *stats) {
     stats->dropped = rb->dropped;
     pthread_mutex_unlock(&rb->lock);
 }
+

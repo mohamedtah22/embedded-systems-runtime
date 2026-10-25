@@ -48,7 +48,7 @@ make test
 make demo
 ```
 
-Expected test result at the time this project was created: **36 pytest tests passed locally**. To produce a machine-readable traffic summary:
+Expected test result at the time this project was created: **42 pytest tests passed locally**. To produce a machine-readable traffic summary:
 
 ```bash
 PYTHONPATH=python python3 python/traffic_lab.py \
@@ -94,3 +94,14 @@ GitHub Actions workflow: [`../../.github/workflows/network-verification-lab.yml`
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+
+## Resource and sequence policy
+
+The server admits at most 64 active sessions. New sessions beyond that bound
+are rejected and counted as `session_errors`; established sessions continue.
+Reset releases all session state. Sequence numbers use 32-bit serial arithmetic:
+wraparound is accepted for forward distances below half the number space;
+duplicates, older packets, and ambiguous half-range jumps are rejected.
+This educational loopback protocol does not authenticate senders; CRC32 checks
+integrity, not identity. Control reset is intentionally available to local tests.
